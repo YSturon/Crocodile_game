@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Animal Gesture</title>
+  <style>
+    body{margin:0;text-align:center;font-family:Arial;background:#111;color:#eee}
+    video,canvas{border:2px solid #555;border-radius:8px}
+    #status{font-size:1.4rem;margin:.6rem}
+    #yesNo{margin:.6rem;display:none}
+    #yesNo button{margin:0 .4rem;padding:.4rem 1rem}
+    table{margin:1rem auto;border-collapse:collapse;width:90%;max-width:600px}
+    th,td{padding:4px 8px;border-bottom:1px solid #444}
+    /* login modal */
+    #loginMask{position:fixed;inset:0;background:#000d;display:flex;
+               align-items:center;justify-content:center}
+    #loginBox{background:#222;padding:1.2rem 1.6rem;border-radius:10px}
+    #loginBox input{padding:.4rem .6rem;font-size:1rem}
+    #loginBox button{margin-left:.6rem;padding:.45rem 1.2rem}
+  </style>
+</head>
+<body>
+  <h1>🦌🐂 Animal Gesture</h1>
+
+  <video id="video" autoplay playsinline></video>
+  <canvas id="dots"></canvas>
+  <div id="status">⌛ ожидание …</div>
+
+  <div id="yesNo">
+    <button id="yes">ДА</button>
+    <button id="no">НЕТ</button>
+  </div>
+
+  <h2>История</h2>
+  <table id="hist">
+    <thead><tr><th>#</th><th>UTC</th><th>Животное</th><th>conf</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- modal login -->
+  <div id="loginMask">
+    <div id="loginBox">
+      <label>Ваше имя:
+        <input id="nameInput" placeholder="Имя"/>
+      </label>
+      <button id="loginBtn">OK</button>
+    </div>
+  </div>
+
+  <script src="/static/js/socket.io.js"></script>
+  <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
