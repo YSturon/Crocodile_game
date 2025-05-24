@@ -1,6 +1,15 @@
-import {FilesetResolver, PoseLandmarker, HandLandmarker}
-  from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.10/+esm';
+/******************************************************************
+ *  Animal Gesture (frontend) – версия без Socket.IO
+ ******************************************************************/
 
+import { FilesetResolver, PoseLandmarker, HandLandmarker }
+  from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.10/+esm';
+import { connectWS } from './ws.js';
+
+/* ───────── глобальные переменные ───────── */
+let ws;                       // объявляем СРАЗУ, до initApp()
+
+/* DOM-узлы */
 const v      = document.getElementById('video');
 const dots   = document.getElementById('dots');
 const dctx   = dots.getContext('2d');
@@ -10,120 +19,141 @@ const yesNo  = document.getElementById('yesNo');
 const yesBtn = document.getElementById('yes');
 const noBtn  = document.getElementById('no');
 
+/* login-modal */
 const loginMask = document.getElementById('loginMask');
 const nameInput = document.getElementById('nameInput');
 const loginBtn  = document.getElementById('loginBtn');
 
-const ioSock = io({autoConnect:false});
-
-/* ───────── login ───────── */
-function haveCookie() {
-  return document.cookie.split(';').some(c => c.trim().startsWith('zoo_uid='));
+/* ───── auth ───── */
+function logged() {
+  return document.cookie.split(';')
+      .some(c => c.trim().startsWith('zoo_uid='));
 }
-if (!haveCookie()) {
+
+if (!logged()) {
   loginMask.style.display = 'flex';
   loginBtn.onclick = async () => {
     const name = nameInput.value.trim();
     if (!name) return alert('Введите имя');
-    await fetch('/api/register', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name})
+
+    const r = await fetch('/api/register', {
+      method : 'POST',
+      headers: {'Content-Type':'application/json'},
+      body   : JSON.stringify({name})
     });
-  loginMask.style.display = 'none';
-  ioSock.connect();                          // ② открываем WS
-  initApp();                                 // ③ камера + landmarks              // продолжить загрузку
+    if (!r.ok) return alert('Ошибка регистрации');
+
+    loginMask.style.display = 'none';
+    initApp();
   };
 } else {
   loginMask.style.display = 'none';
   initApp();
 }
 
-/* ───────── основное приложение ───────── */
+/* ───── приложение ───── */
 async function initApp() {
-  /* камера */
-  const stream = await navigator.mediaDevices.getUserMedia({video:true});
+  /* 1  WS-подключение */
+  ws = connectWS(showResult,
+      () => console.log('WS connected'));
+
+  /* 2  камера */
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({video:true});
+  } catch (e) {
+    alert('Не удалось открыть камеру: ' + e.name);
+    console.error(e);
+    return;
+  }
   v.srcObject = stream;
-  await new Promise(r => v.onloadedmetadata = r);
+  await v.play();
   dots.width  = v.videoWidth;
   dots.height = v.videoHeight;
 
-  /* landmarkers */
+  /* 3  Mediapipe */
   const base = await FilesetResolver.forVisionTasks(
       'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.10/wasm');
-  const POSE_MODEL = '/static/models/pose_landmarker_full.task';
-  const HAND_MODEL = '/static/models/hand_landmarker_full.task';
+  const poseLm = await PoseLandmarker.createFromOptions(base, {
+    runningMode:'VIDEO', numPoses:1,
+    baseOptions:{modelAssetPath:'/static/models/pose_landmarker_full.task'}});
+  const handLm = await HandLandmarker.createFromOptions(base, {
+    runningMode:'VIDEO', numHands:2,
+    baseOptions:{modelAssetPath:'/static/models/hand_landmarker_full.task'}});
 
-  const poseLm = await PoseLandmarker.createFromOptions(base,{
-        runningMode:'VIDEO',numPoses:1,
-        baseOptions:{modelAssetPath:POSE_MODEL}});
-  const handLm = await HandLandmarker.createFromOptions(base,{
-        runningMode:'VIDEO',numHands:2,
-        baseOptions:{modelAssetPath:HAND_MODEL}});
-
-  /* цикл */
-  let last=0;
+  /* 4  цикл */
+  let last = 0;
   function loop(ts){
-    if (ts-last>33){
-      last=ts;
-      const pose = poseLm.detectForVideo(v,ts);
-      const hand = handLm.detectForVideo(v,ts);
+    if (ts - last > 33) {                 // ~30 fps
+      last = ts;
+      const pose = poseLm.detectForVideo(v, ts);
+      const hand = handLm.detectForVideo(v, ts);
 
-      drawDots(pose,hand);
+      drawDots(pose, hand);
 
-      const vec=[];
-      hand.landmarks.forEach(arr=>arr.forEach(lm=>vec.push(lm.x,lm.y,lm.z)));
-      while(vec.length<21*2*3) vec.push(0);        // до 2 рук
+      const vec = [];
+      hand.landmarks.forEach(a => a.forEach(lm =>
+          vec.push(lm.x, lm.y, lm.z)));
+      while (vec.length < 21*2*3) vec.push(0);   // до 2 рук
+
       if (pose.landmarks.length)
-        pose.landmarks[0].forEach(lm=>vec.push(lm.x,lm.y,lm.z));
+        pose.landmarks[0].forEach(lm =>
+            vec.push(lm.x, lm.y, lm.z));
       else vec.push(...Array(33*3).fill(0));
 
-      ioSock.emit('landmarks', new Float32Array(vec).buffer);
+      ws.sendLandmarks(new Float32Array(vec).buffer);
     }
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
 }
 
-/* ───────── dot render ───────── */
-function drawDots(pose,hand){
+/* ───── рисование точек ───── */
+function drawDots(pose, hand) {
   dctx.clearRect(0,0,dots.width,dots.height);
-  dctx.fillStyle='#0f0';
-  hand.landmarks.forEach(arr=>arr.forEach(l=>dot(l)));
-  if (pose.landmarks.length) pose.landmarks[0].forEach(l=>dot(l));
-}
-function dot(lm){
-  dctx.beginPath();
-  dctx.arc(lm.x*dots.width, lm.y*dots.height, 5, 0, Math.PI*2);
-  dctx.fill();
+  dctx.fillStyle = '#0f0';
+  hand.landmarks.forEach(a => a.forEach(dot));
+  if (pose.landmarks.length) pose.landmarks[0].forEach(dot);
+
+  function dot(lm) {
+    dctx.beginPath();
+    dctx.arc(lm.x*dots.width, lm.y*dots.height, 5, 0, Math.PI*2);
+    dctx.fill();
+  }
 }
 
-/* ───────── server events ───────── */
-ioSock.on('result', d=>{
-  st.textContent=`🔎 ${d.class} (${(d.confidence*100).toFixed(1)}%)`;
-  yesNo.style.display='block';
-  refreshHist();
-});
+/* ───── результат от сервера ───── */
+function showResult(d) {
+  st.textContent = `🔎 ${d.animal} (${(d.confidence*100).toFixed(1)} %)`;
+  yesNo.style.display = 'block';
+  refreshStats();
+}
+
+/* ───── answer / stats ───── */
 yesBtn.onclick = () => sendAnswer(true);
 noBtn.onclick  = () => sendAnswer(false);
 
-async function sendAnswer(val){
-  await fetch('/api/answer',{
-    method:'POST',
+async function sendAnswer(val) {
+  await fetch('/api/answer', {
+    method :'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({val})
+    body   : JSON.stringify({ val })
   });
-  yesNo.style.display='none';
-  refreshHist();
+  yesNo.style.display = 'none';
+  refreshStats();
 }
 
-async function refreshHist(){
-  const r=await fetch('/api/stats'); const data=await r.json();
-  hist.innerHTML='';
-  data.forEach((it,i)=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${i+1}</td><td>${new Date().toLocaleTimeString()}</td>
-      <td>${it.animal||'-'}</td><td>${it.ok}/${it.shots}</td>`;
+async function refreshStats() {
+  const r  = await fetch('/api/stats');
+  const data = await r.json();
+  hist.innerHTML = '';
+  data.forEach((it,i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td>${new Date().toLocaleTimeString()}</td>
+      <td>${it.name ?? '-'}</td>
+      <td>${it.ok}/${it.shots}</td>`;
     hist.appendChild(tr);
   });
 }
