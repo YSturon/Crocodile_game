@@ -3,6 +3,7 @@ package ru.gesture.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.stereotype.Controller;
 import ru.gesture.dto.ResultMessage;
 
