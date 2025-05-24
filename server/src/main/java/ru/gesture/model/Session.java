@@ -1,10 +1,12 @@
 package ru.gesture.model;
 
 import jakarta.persistence.*;
-import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.LocalDateTime;
 
 @Entity
-@Getter @Setter @NoArgsConstructor
+@Table(name = "sessions")
 public class Session {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -14,6 +16,44 @@ public class Session {
 
     private String siteVer;
 
-    @org.hibernate.annotations.CreationTimestamp
-    private java.time.LocalDateTime started;
+    @CreationTimestamp
+    private LocalDateTime started;
+
+    public Session() {}
+
+    public Session(User user, String siteVer){
+        this.user = user;
+        this.siteVer = siteVer;
+    }
+
+    public Long getId() {
+        return id;
+    }
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    public String getSiteVer() {
+        return siteVer;
+    }
+
+    public void setSiteVer(String siteVer) {
+        this.siteVer = siteVer;
+    }
+
+    public LocalDateTime getStarted() {
+        return started;
+    }
+
+    public void setStarted(LocalDateTime started) {
+        this.started = started;
+    }
 }
