@@ -1,8 +1,7 @@
 package ru.gesture.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.*;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import ru.gesture.model.Shot;
@@ -15,10 +14,9 @@ import java.util.Map;
 @RequestMapping("/api")
 public class AnswerController {
 
-    private final CookieUtil     cookies;
+    private final CookieUtil cookies;
     private final ShotRepository shots;
 
-    @Autowired
     public AnswerController(CookieUtil cookies, ShotRepository shots) {
         this.cookies = cookies;
         this.shots   = shots;
@@ -28,17 +26,24 @@ public class AnswerController {
     public Map<String, Boolean> answer(@RequestBody Map<String, Boolean> body,
                                        HttpServletRequest req) {
 
-        boolean val = Boolean.TRUE.equals(body.get("val"));
+        Boolean val = body.get("val");
+        if (val == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "`val` missing in body");
+        }
 
         long uid = cookies.readUid(req)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED));
 
-        Shot shot = shots.findTopBySession_User_IdOrderByIdDesc(uid)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        Shot shot = shots.findTopBySession_UserIdOrderByIdDesc(uid)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND));
 
         shot.setUserOk(val);
         shots.save(shot);
 
         return Map.of("ok", true);
     }
+
 }
