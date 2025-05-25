@@ -1,3 +1,3 @@
 package ru.gesture.dto;
 
-public record ResultMessage(String animal, float confidence) {}
+public record ResultMessage(String animal, float confidence, boolean finalShot) {}
