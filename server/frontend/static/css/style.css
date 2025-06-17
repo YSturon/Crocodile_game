@@ -1,0 +1,97 @@
+/* ---------- базовое оформление ---------- */
+body{
+    margin:0;
+    text-align:center;
+    font-family:Arial,Helvetica,sans-serif;
+    background:#111;
+    color:#eee;
+}
+
+h1{margin:.8rem 0}
+
+/* ---------- видео + канвас ---------- */
+video,canvas{
+    border:2px solid #555;
+    border-radius:8px;
+}
+
+#status{
+    font-size:1.4rem;
+    margin:.6rem;
+}
+
+/* ---------- live-таблица вероятностей ---------- */
+#probs{
+    margin:.6rem auto;
+    width:90%; max-width:380px;
+    border-collapse:collapse;
+}
+#probs td{
+    padding:2px 6px;
+    text-align:right;
+}
+#probs td:first-child{
+    text-align:left;
+    color:#0f0;
+}
+
+/* ---------- таблица истории ---------- */
+#hist{
+    margin:1rem auto;
+    width:92%; max-width:640px;
+    border-collapse:collapse;
+}
+#hist th,#hist td{
+    padding:4px 8px;
+    border-bottom:1px solid #444;
+}
+
+/* ---------- модалка логина ---------- */
+#loginMask{
+    position:fixed; inset:0;
+    background:#000d;
+    display:flex; align-items:center; justify-content:center;
+}
+#loginBox{
+    background:#222; padding:1.2rem 1.6rem;
+    border-radius:10px;
+}
+#loginBox input{ padding:.4rem .6rem; font-size:1rem; }
+#loginBox button{ margin-left:.6rem; padding:.45rem 1.2rem; }
+
+/* ---------- модалка “Вы изображали …?” (если осталась) ---------- */
+.modal{
+    position:fixed; inset:0;
+    background:#000a;
+    display:none;
+    align-items:center; justify-content:center;
+    z-index:10;
+}
+.modal-content{
+    background:#222;
+    padding:1rem 1.4rem;
+    border-radius:10px;
+}
+.modal-content button{
+    margin:.4rem .6rem;
+    padding:.4rem 1.2rem;
+}
+
+/* ---------- новая сетка ---------- */
+#layout{
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    gap:24px;
+    flex-wrap:wrap;            /* на узких экранах — столбиком */
+    margin-top:1rem;
+}
+
+#live{   flex:0 1 380px; }
+#history{flex:0 1 420px; }
+
+#history #hist{ margin:.2rem 0; }
+
+@media (max-width:900px){
+    #layout{gap:16px;}
+}

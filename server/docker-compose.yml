@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+  # ────────────────────────────── PostgreSQL ─────────────────────────────
+  db:
+    image: postgres:16
+    container_name: gesture-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: gesture
+    ports:
+      - "5434:5432"          # остаётся, чтобы подключаться с хоста
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  # ────────────────────────────── Spring Boot API ────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile     # ваш Dockerfile в ./server
+    image: animal-gesture-api:latest
+    container_name: animal-gesture-api
+    depends_on:
+      - db
+      - ml
+    environment:
+      # переопределяем URL БД и ML-сервиса внутри контейнера
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/gesture
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: secret
+      ML_BASE_URL: http://ml:8000
+    ports:
+      - "8080:8080"
+    networks:
+      - backend
+
+  # ────────────────────────────── Python ML-service ──────────────────────
+  ml:
+    build:
+      context: ./ml-service      # ./server/ml-service
+      dockerfile: Dockerfile
+    image: animal-gesture-ml:latest
+    container_name: animal-gesture-ml
+    ports:
+      - "8000:8000"
+    # Если понадобится GPU:
+    # runtime: nvidia
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
+    networks:
+      - backend
+
+# ────────────────────────────── Volumes & Networks ───────────────────────
+volumes:
+  dbdata:
+
+networks:
+  backend:
+    driver: bridge

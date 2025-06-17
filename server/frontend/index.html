@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Animal Gesture</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<h1>Animal Gesture</h1>
+
+<div id="layout">
+  <!-- Левая колонка: видео + статус + вероятности -->
+  <section id="live">
+    <video id="video" autoplay playsinline></video>
+    <div id="status">⌛ ожидание…</div>
+    <table id="probs"><tbody></tbody></table>
+  </section>
+
+  <!-- Правая колонка: канвас с точками + история/статистика -->
+  <section id="history">
+    <canvas id="dots"></canvas>
+    <table id="hist">
+      <thead><tr><th>ID</th><th>UTC</th><th>User</th><th>Animal</th><th>%</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+</div>
+
+<!-- окно логина (остаётся) -->
+<div id="loginMask" class="modal" style="display:flex">
+  <div class="modal-content">
+    <label>Ваше имя: <input id="nameInput" placeholder="Имя"></label>
+    <button id="loginBtn">OK</button>
+  </div>
+</div>
+
+<script type="module" src="/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+moose
+bull
+elephant
+rabbit
+giraffe
+crocodile
+gopher
+chicken
+gorilla
+rhinoceros

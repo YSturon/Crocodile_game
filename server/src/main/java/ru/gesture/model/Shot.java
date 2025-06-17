@@ -32,22 +32,31 @@ public class Shot {
         this.confidence = confidence;
     }
 
+    /* ---------- базовые геттеры/сеттеры ---------- */
 
-    public Long getId()                           { return id; }
-    public void setId(Long id)                    { this.id = id; }
+    public Long getId()                         { return id; }
+    public void setId(Long id)                  { this.id = id; }
 
-    public Session getSession()                   { return session; }
-    public void setSession(Session session)       { this.session = session; }
+    public Session getSession()                 { return session; }
+    public void setSession(Session session)     { this.session = session; }
 
-    public String getAnimal()                     { return animal; }
-    public void setAnimal(String animal)          { this.animal = animal; }
+    public String getAnimal()                   { return animal; }
+    public void setAnimal(String animal)        { this.animal = animal; }
 
-    public Float getConfidence()                  { return confidence; }
-    public void setConfidence(Float confidence)   { this.confidence = confidence; }
+    public Float getConfidence()                { return confidence; }
+    public void setConfidence(Float confidence) { this.confidence = confidence; }
 
-    public Boolean getUserOk()                    { return userOk; }
-    public void setUserOk(Boolean userOk)         { this.userOk = userOk; }
+    public Boolean getUserOk()                  { return userOk; }
+    public void setUserOk(Boolean userOk)       { this.userOk = userOk; }
 
-    public LocalDateTime getShotTime()            { return shotTime; }
-    public void setShotTime(LocalDateTime time)   { this.shotTime = time; }
+    public LocalDateTime getShotTime()          { return shotTime; }
+    public void setShotTime(LocalDateTime t)    { this.shotTime = t; }
+
+    public LocalDateTime getCreatedAt() {
+        return shotTime;
+    }
+
+    public Float getConf() {
+        return confidence;
+    }
 }

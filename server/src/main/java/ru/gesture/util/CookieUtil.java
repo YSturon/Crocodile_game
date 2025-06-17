@@ -14,9 +14,12 @@ public class CookieUtil {
 
     public void setUid(HttpServletResponse res, Long id) {
         ResponseCookie ck = ResponseCookie.from(UID, id.toString())
-                .httpOnly(true).path("/").maxAge(Duration.ofDays(365)).build();
+                .path("/")
+                .maxAge(Duration.ofDays(365))
+                .build();
         res.addHeader(HttpHeaders.SET_COOKIE, ck.toString());
     }
+
 
     public Optional<Long> readUid(HttpServletRequest req) {
         Cookie[] cookies = Optional.ofNullable(req.getCookies()).orElse(new Cookie[0]);

@@ -6,14 +6,23 @@ import ru.gesture.model.Shot;
 import ru.gesture.dto.StatRow;
 
 import java.util.List;
-import java.util.Optional;           // ← новый импорт
+import java.util.Optional;
 
 public interface ShotRepository extends JpaRepository<Shot, Long> {
 
+    /* последний кадр пользователя (AnswerController) */
     Optional<Shot> findTopBySession_UserIdOrderByIdDesc(long userId);
 
+    /* ───────── ДОБАВЛЕНО: HistoryController вызывает именно этот вариант ───────── */
+    List<Shot> findTop100BySession_UserIdOrderByIdDesc(long userId);
+
+    /* ───────── ДОБАВЛЕНО: StatsController использует такую форму имени ─────────── */
+    List<Shot> findTop100BySession_User_IdOrderByIdDesc(long userId);
+
+    /* пять последних кадров конкретной сессии (stats.html) */
     List<Shot> findTop5BySession_IdOrderByIdDesc(long sessionId);
 
+    /* агрегированная сводка по всем пользователям */
     @Query("""
            select new ru.gesture.dto.StatRow(
                    u.name,
