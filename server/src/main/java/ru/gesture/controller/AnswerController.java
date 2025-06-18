@@ -22,10 +22,12 @@ public class AnswerController {
         this.shots   = shots;
     }
 
+    /** Обрабатывает ответ пользователя (ок/не ок) */
     @PostMapping("/answer")
-    public Map<String, Boolean> answer(@RequestBody Map<String, Boolean> body,
-                                       HttpServletRequest req) {
-
+    public Map<String, Boolean> answer(
+            @RequestBody Map<String, Boolean> body,
+            HttpServletRequest req
+    ) {
         Boolean val = body.get("val");
         if (val == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -36,7 +38,8 @@ public class AnswerController {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.UNAUTHORIZED));
 
-        Shot shot = shots.findTopBySession_UserIdOrderByIdDesc(uid)
+        // Исправлен вызов метода репозитория с учетом _User_Id
+        Shot shot = shots.findTopBySession_User_IdOrderByIdDesc(uid)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND));
 
@@ -45,5 +48,4 @@ public class AnswerController {
 
         return Map.of("ok", true);
     }
-
 }

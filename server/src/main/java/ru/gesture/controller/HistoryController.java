@@ -2,9 +2,8 @@ package ru.gesture.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
-import ru.gesture.model.Shot;
-import ru.gesture.repository.ShotRepository;
 import ru.gesture.util.CookieUtil;
+import ru.gesture.repository.ShotRepository;
 
 import java.util.List;
 
@@ -20,23 +19,29 @@ public class HistoryController {
 		this.cookies = cookies;
 	}
 
-	/** последние ≤ 100 распознанных жестов текущего пользователя */
+	/** Возвращает последние ≤ 100 жестов текущего пользователя */
 	@GetMapping("/history")
 	public List<Row> history(HttpServletRequest req) {
 		return cookies.readUid(req)
-				.map(uid -> shots.findTop100BySession_UserIdOrderByIdDesc(uid)
-						.stream().map(Row::new).toList())
+				.map(uid -> shots
+						.findTop100BySession_User_IdOrderByIdDesc(uid)
+						.stream()
+						.map(Row::new)
+						.toList()
+				)
 				.orElse(List.of());
 	}
 
 	/* компактное DTO для фронта */
 	record Row(Long id, String utc, String user, String animal, float conf) {
-		Row(Shot s) {
-			this(s.getId(),
+		Row(ru.gesture.model.Shot s) {
+			this(
+					s.getId(),
 					s.getShotTime().toString(),
 					s.getSession().getUser().getName(),
 					s.getAnimal(),
-					s.getConfidence());
+					s.getConfidence()
+			);
 		}
 	}
 }

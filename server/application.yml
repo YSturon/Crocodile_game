@@ -3,11 +3,18 @@ spring:
     url: jdbc:postgresql://db:5432/gesture
     username: postgres
     password: secret
+
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
+
 server:
   port: 8080
+
 ml:
   base-url: http://ml:8000
+
+logging:
+  level:
+    ru.gesture: DEBUG

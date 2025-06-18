@@ -1,107 +1,137 @@
 package ru.gesture.controller;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import jakarta.validation.constraints.NotNull;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import ru.gesture.dto.ResultMessage;
 import ru.gesture.model.Session;
 import ru.gesture.model.Shot;
+import ru.gesture.model.User;
 import ru.gesture.repository.SessionRepository;
 import ru.gesture.repository.ShotRepository;
 import ru.gesture.repository.UserRepository;
+import ru.gesture.util.CookieUtil;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
+/**
+ * Обрабатывает последовательности Landmark-ов, зовёт /predict и,
+ * при достаточной уверенности, пишет кадр в БД.
+ */
+@Slf4j
 @Controller
+@RequiredArgsConstructor
 public class LandmarkController {
 
-    private static final Logger log        = LoggerFactory.getLogger(LandmarkController.class);
-    private static final float  OK_CONF    = 0.50f;   // «уверенный» кадр
-    private static final int    N_OK       = 5;       // подряд одинаковых
-    private static final int    ML_TIMEOUT = 1_500;   // мс
+    /* ---------- константы ---------- */
+    private static final int   WINDOW     = 30;
+    private static final int   FEAT_LEN   = 225;
+    private static final int   FULL_LEN   = WINDOW * FEAT_LEN;
+    private static final float MIN_CONF   = 0.55f;
+    private static final long  ML_TIMEOUT = 2_000;              // мс
+    private static final String SITE_VER  = "web-v10";
 
+    /* ---------- DI ---------- */
     private final WebClient         ml;
-    private final UserRepository    users;
-    private final SessionRepository sessions;
     private final ShotRepository    shots;
+    private final SessionRepository sessions;
+    private final UserRepository    users;
 
-    /** последний animal и длина текущей серии по STOMP-сессии */
-    private final Map<String,String>  lastAnimal = new ConcurrentHashMap<>();
-    private final Map<String,Integer> streak     = new ConcurrentHashMap<>();
+    /* ---------- скользящее окно ---------- */
+    private final float[][] buf = new float[WINDOW][FEAT_LEN];
+    private int head = 0, filled = 0;
 
-    public LandmarkController(WebClient ml,
-                              UserRepository users,
-                              SessionRepository sessions,
-                              ShotRepository shots) {
-        this.ml       = ml;
-        this.users    = users;
-        this.sessions = sessions;
-        this.shots    = shots;
-    }
-
-    /* ─────────── STOMP endpoint ─────────── */
+    /* =================================================================== */
     @MessageMapping("/landmarks")
     @SendToUser("/queue/result")
+    @Transactional
     public Mono<ResultMessage> handle(@Header("simpSessionId") String sid,
-                                      @Payload String b64,
-                                      @Header("simpSessionAttributes") Map<String,Object> attrs) {
+                                      @Payload @NotNull List<Float> seq,
+                                      SimpMessageHeaderAccessor sha) {
 
-        // пересылаем ML-сервису ту же base-64-строку, без преобразований
-        return ml.post()
-                .uri("/predict")
+        /* -------- 1. собираем окно 30×225 или берём готовые 6750 float -------- */
+        ByteBuffer bb;
+        if (seq.size() == FEAT_LEN) {                 // пришёл один кадр
+            for (int i = 0; i < FEAT_LEN; i++) buf[head][i] = seq.get(i);
+            head   = (head + 1) % WINDOW;
+            filled = Math.min(filled + 1, WINDOW);
+            if (filled < WINDOW) return Mono.empty(); // ждём 30 кадров
+
+            bb = ByteBuffer.allocate(FULL_LEN * 4).order(ByteOrder.LITTLE_ENDIAN);
+            for (int i = 0; i < WINDOW; i++)
+                for (float v : buf[(head + i) % WINDOW]) bb.putFloat(v);
+        } else if (seq.size() == FULL_LEN) {          // сразу блок 30 кадров
+            bb = ByteBuffer.allocate(FULL_LEN * 4).order(ByteOrder.LITTLE_ENDIAN);
+            seq.forEach(bb::putFloat);
+        } else {
+            log.warn("[{}] Bad frame length: {}", sid, seq.size());
+            return Mono.empty();
+        }
+
+        /* -------- 2. FastAPI /predict -------- */
+        String b64 = Base64.getEncoder().encodeToString(bb.array());
+
+        return ml.post().uri("/predict")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
                 .bodyValue(Map.of("b64", b64))
                 .retrieve()
                 .bodyToMono(MlResp.class)
                 .timeout(Duration.ofMillis(ML_TIMEOUT))
-                .onErrorResume(ex -> {
-                    log.error("Error calling ML-service", ex);
-                    return Mono.just(new MlResp("unknown", 0f, List.of()));
-                })
-                .map(r -> afterMl(r, sid, attrs));
+                .onErrorResume(ex -> Mono.just(new MlResp("unknown", 0f, List.of())))
+                .map(r -> new ResultMessage(
+                        r.animal, r.confidence, r.probs,
+                        saveIfConfident(sha, r)));
     }
 
-    /* ---------- расчёт серии и сохранение ---------- */
-    private ResultMessage afterMl(MlResp r,
-                                  String sid,
-                                  Map<String,Object> attrs) {
+    /* ---------- сохраняем Shot, если уверенность ≥ MIN_CONF ---------- */
+    private boolean saveIfConfident(SimpMessageHeaderAccessor sha, MlResp r) {
 
-        String prev = lastAnimal.get(sid);
-        if (r.conf() > OK_CONF && r.animal().equals(prev))
-            streak.merge(sid, 1, Integer::sum);
-        else
-            streak.put(sid, 1);
-        lastAnimal.put(sid, r.animal());
+        if (r.confidence < MIN_CONF) return false;
 
-        boolean finalShot = false;
-        if (streak.get(sid) >= N_OK && r.conf() > OK_CONF) {
-            finalShot = true;
-            streak.put(sid, 0);
-            saveShot(attrs, r.animal(), r.conf());
+        /* 1. Пытаемся взять UID из атрибутов WebSocket-сессии */
+        Long tmp = Optional.ofNullable(sha.getSessionAttributes())
+                .map(m -> m.get(CookieUtil.UID))
+                .filter(Long.class::isInstance)
+                .map(Long.class::cast)
+                .orElse(null);
+
+        /* 2. Если нет — берём из заголовка STOMP (см. ws.js) */
+        if (tmp == null) {
+            String h = sha.getFirstNativeHeader("uid");
+            if (h != null && !h.isBlank())
+                try { tmp = Long.parseLong(h); } catch (NumberFormatException ignore) { }
         }
+        if (tmp == null) return false;
 
-        return new ResultMessage(r.animal(), r.conf(), r.probs(), finalShot);
+        final Long uid = tmp;                         // effectively-final
+
+        User user = users.findById(uid).orElse(null);
+        if (user == null) return false;
+
+        Session sess = sessions.findTopByUser_IdOrderByIdDesc(uid)
+                .orElseGet(() -> sessions.save(new Session(user, SITE_VER)));
+
+        shots.save(new Shot(sess, r.animal, r.confidence));
+        return true;
     }
 
-    /* ---------- helper ---------- */
-    private void saveShot(Map<String,Object> attrs, String animal, float conf){
-        Long uid = (Long) attrs.get("zoo_uid");
-        if (uid == null) return;
-
-        users.findById(uid).ifPresent(u -> {
-            Session s = sessions.findTopByUser_IdOrderByIdDesc(uid)
-                    .orElseGet(() -> sessions.save(new Session(u, "v3")));
-            shots.save(new Shot(s, animal, conf));
-        });
-    }
-
-    /* ответ FastAPI-сервиса */
-    private record MlResp(String animal, float conf, List<Float> probs) { }
+    /* ---------- DTO FastAPI ---------- */
+    public record MlResp(String animal, float confidence, List<Float> probs) {}
 }
