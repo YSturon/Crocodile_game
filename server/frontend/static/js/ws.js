@@ -1,53 +1,54 @@
 import { Client } from 'https://cdn.jsdelivr.net/npm/@stomp/stompjs@7/+esm';
 
 /**
- * Подключается к STOMP-брокеру и возвращает объект с одной функцией
- *   sendLandmarks(buffer:ArrayBuffer)
- * Фреймы режутся на чанки по 16 К (splitLargeFrames).
- * Heart-beat 10 с, авто-переподключение 2 с.
+ * Читает zoo_uid из cookie и передаёт его в каждый STOMP-SEND.
  */
-
-function getUid () {
+function readUid() {
   const m = document.cookie.match(/(?:^|;\s*)zoo_uid=([^;]+)/);
   return m ? m[1] : '';
 }
 
-export function connectWS (onResult) {
+export function connectWS(onResult) {
   return new Promise(resolve => {
-    const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
+    const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
+    const url    = `${scheme}://${location.host}/ws`;
+    const uid    = readUid();
 
     const client = new Client({
       brokerURL            : url,
-      connectHeaders       : { uid: getUid() },         // ← передаём UID всегда
       reconnectDelay       : 2000,
       heartbeatIncoming    : 10000,
       heartbeatOutgoing    : 10000,
       splitLargeFrames     : true,
       maxWebSocketChunkSize: 16 * 1024,
-      debug                : msg => console.log('[STOMP]', msg)
+      debug                : msg => console.log('[STOMP]', msg),
+      // connectHeaders здесь не обязательны, передаём uid в каждом publish
     });
 
     client.onConnect = () => {
       console.log('WS connected →', url);
 
-      client.subscribe('/user/queue/result',
-          m => onResult(JSON.parse(m.body)));
+      client.subscribe('/user/queue/result', msg =>
+          onResult(JSON.parse(msg.body))
+      );
 
       resolve({
-        /** отправляет 30×225 float-значений в JSON */
-        sendLandmarks (ab) {
+        sendLandmarks(buffer) {
           if (!client.connected) return;
           client.publish({
             destination: '/app/landmarks',
-            headers    : { 'content-type': 'application/json' },
-            body       : JSON.stringify([...new Float32Array(ab)])
+            headers: {
+              'content-type': 'application/json',
+              uid              // <<< ключевое изменение: uid в заголовке
+            },
+            body: JSON.stringify(Array.from(new Float32Array(buffer)))
           });
         }
       });
     };
 
-    client.onStompError     = f => console.error('STOMP error:', f.headers.message, f.body);
-    client.onWebSocketClose = e => console.warn('WebSocket closed', e.code, e.reason);
+    client.onStompError     = frame => console.error('STOMP error:', frame.headers['message'], frame.body);
+    client.onWebSocketClose = e     => console.warn('WebSocket closed', e.code, e.reason);
 
     client.activate();
   });
