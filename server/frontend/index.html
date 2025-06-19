@@ -2,32 +2,35 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Animal Gesture</title>
+  <title>Игра "Крокодил"</title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
-<h1>Animal Gesture</h1>
+<h1>Игра "Крокодил"</h1>
 
 <div id="layout">
-  <!-- Левая колонка: видео + статус + вероятности -->
+  <!-- Левая колонка: видео + статус + вероятности + кнопка паузы -->
   <section id="live">
     <video id="video" autoplay playsinline></video>
     <div id="status">⌛ ожидание…</div>
+    <button id="pauseBtn">⏸ Пауза</button>
     <table id="probs"><tbody></tbody></table>
   </section>
 
-  <!-- Правая колонка: канвас с точками + история/статистика -->
+  <!-- Правая колонка: канвас с точками + история -->
   <section id="history">
     <canvas id="dots"></canvas>
-    <table id="hist">
-      <thead><tr><th>ID</th><th>UTC</th><th>User</th><th>Animal</th><th>%</th></tr></thead>
-      <tbody></tbody>
-    </table>
+    <div id="histBox" style="max-height:16rem;overflow-y:auto;">
+      <table id="hist">
+        <thead><tr><th>ID</th><th>UTC</th><th>User</th><th>Animal</th><th>%</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </section>
 </div>
 
-<!-- окно логина (остаётся) -->
+<!-- окно логина -->
 <div id="loginMask" class="modal" style="display:flex">
   <div class="modal-content">
     <label>Ваше имя: <input id="nameInput" placeholder="Имя"></label>

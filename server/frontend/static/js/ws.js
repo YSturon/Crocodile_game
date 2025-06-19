@@ -22,7 +22,6 @@ export function connectWS(onResult) {
       splitLargeFrames     : true,
       maxWebSocketChunkSize: 16 * 1024,
       debug                : msg => console.log('[STOMP]', msg),
-      // connectHeaders здесь не обязательны, передаём uid в каждом publish
     });
 
     client.onConnect = () => {

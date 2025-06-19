@@ -38,7 +38,6 @@ public class AnswerController {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.UNAUTHORIZED));
 
-        // Исправлен вызов метода репозитория с учетом _User_Id
         Shot shot = shots.findTopBySession_User_IdOrderByIdDesc(uid)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND));

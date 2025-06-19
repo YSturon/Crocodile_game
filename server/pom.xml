@@ -21,7 +21,6 @@
 	</properties>
 
 	<dependencies>
-		<!-- Web, WebSocket, WebFlux, JPA, Postgres, Lombok, Servlet API -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
@@ -54,13 +53,11 @@
 			<version>6.0.0</version>
 			<scope>provided</scope>
 		</dependency>
-		<!-- 1.  Jakarta Bean Validation 3 (Hibernate Validator) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-validation</artifactId>
 		</dependency>
 
-		<!-- 2.  spring-messaging (даёт аннотации SendTo / SendToUser и пр.) -->
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-messaging</artifactId>
@@ -69,12 +66,10 @@
 
 	<build>
 		<plugins>
-			<!-- Spring Boot fat-JAR -->
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
-			<!-- Компилятор Java17 -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
@@ -84,13 +79,11 @@
 				</configuration>
 			</plugin>
 
-			<!-- Копируем фронтенд в classpath/static -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-resources-plugin</artifactId>
 				<version>3.3.1</version>
 				<executions>
-					<!-- 1) HTML-файлы из корня frontend -->
 					<execution>
 						<id>frontend-html</id>
 						<phase>process-resources</phase>
@@ -111,7 +104,6 @@
 							</resources>
 						</configuration>
 					</execution>
-					<!-- 2) статика (CSS/JS/models) -->
 					<execution>
 						<id>frontend-assets</id>
 						<phase>process-resources</phase>

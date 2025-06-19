@@ -42,7 +42,6 @@ public class LandmarkController {
     private static final long   ML_TIMEOUT = 2_000;     // ms
     private static final String SITE_VER   = "web-v10";
 
-    /* ---------- DI ---------- */
     private final WebClient         ml;
     private final ShotRepository    shots;
     private final SessionRepository sessions;

@@ -11,7 +11,7 @@ RUN mvn -B -ntp dependency:resolve
 COPY src/ ./src/
 COPY frontend/ ./frontend/
 
-# 3) чистим и собираем JAR (static попадёт в BOOT-INF/classes/static)
+# 3) чистим и собираем JAR
 RUN mvn -B -ntp -DskipTests clean package
 
 # ───── runtime stage ─────

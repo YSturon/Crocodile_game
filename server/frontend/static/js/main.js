@@ -1,6 +1,3 @@
-// main.js — v10.2  (history initial load + DRY)
-// ------------------------------------------------------------------
-
 import { FilesetResolver, PoseLandmarker, HandLandmarker }
   from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.10/+esm';
 import { connectWS } from './ws.js';
@@ -12,23 +9,25 @@ const SEQ_LEN   = 30;
 const FRAME_DIM = (NUM_POSE + NUM_HAND * 2) * 3;     // 225
 
 const CLASSES = [
-  'moose','bull','elephant','rabbit','giraffe',
-  'crocodile','gopher','chicken','gorilla','rhinoceros'
+  'Лось','Бык','Слон','Кролик','Жираф',
+  'Крокодил','Суслик','Курица','Горилла','Носорог'
 ];
 
 /* ---------- DOM ---------- */
-const v      = document.getElementById('video');
-const dots   = document.getElementById('dots');
-const dctx   = dots.getContext('2d');
-const st     = document.getElementById('status');
-const probsT = document.querySelector('#probs tbody');
-const histT  = document.querySelector('#hist tbody');
-const loginM = document.getElementById('loginMask');
-const nameI  = document.getElementById('nameInput');
-const loginB = document.getElementById('loginBtn');
+const v       = document.getElementById('video');
+const dots    = document.getElementById('dots');
+const dctx    = dots.getContext('2d');
+const st      = document.getElementById('status');
+const probsT  = document.querySelector('#probs tbody');
+const histT   = document.querySelector('#hist tbody');
+const histBox = document.getElementById('histBox');
+const pauseB  = document.getElementById('pauseBtn');
+const loginM  = document.getElementById('loginMask');
+const nameI   = document.getElementById('nameInput');
+const loginB  = document.getElementById('loginBtn');
 
 /* ---------- глобал ---------- */
-let wsPromise, ws, awaiting = false;
+let wsPromise, ws, awaiting = false, paused = false;
 const seqBuffer = [];
 
 /* ---------- таблица вероятностей ---------- */
@@ -40,28 +39,34 @@ function buildProbs(){
 }
 buildProbs();
 
-/* ---------- загрузка истории ---------- */
+/* ---------- загрузка истории (≤100) ---------- */
 async function loadHistory(){
   const res = await fetch('/api/history', { credentials:'same-origin', cache:'no-cache' });
-  if (!res.ok) return;                 // в крайнем случае тихонько выходим
+  if (!res.ok) return;
+
+  // сохраняем скролл — чтобы страница не дёргалась
+  const oldScroll = histBox.scrollTop;
+
   histT.innerHTML = '';
   (await res.json()).forEach(r =>
       histT.insertAdjacentHTML('beforeend',
           `<tr><td>${r.id}</td><td>${r.utc.slice(11,19)}</td>
            <td>${r.user}</td><td>${r.animal}</td>
            <td>${(r.conf*100).toFixed(1)}%</td></tr>`));
+
+  histBox.scrollTop = oldScroll;               // возвращаем положение
 }
 
 /* ---------- отправка последовательности ---------- */
 function sendSequence(){
-  if (awaiting || !ws) return;
+  if (paused || awaiting || !ws) return;
   const flat = new Float32Array(SEQ_LEN * FRAME_DIM);
   for (let i = 0; i < SEQ_LEN; i++) flat.set(seqBuffer[i], i * FRAME_DIM);
   awaiting = true;
   ws.sendLandmarks(flat.buffer);
 }
 
-/* ---------- приём результата ---------- */
+/* ---------- обработка результата от сервера ---------- */
 async function onResult(msg){
   awaiting = false;
   st.textContent = `🔎 ${msg.animal} (${(msg.confidence * 100).toFixed(1)}%)`;
@@ -72,17 +77,24 @@ async function onResult(msg){
             (v*100).toFixed(1) + '%');
   }
 
-  if (msg.finalShot){
+  if (msg.finalShot)
     await loadHistory();
-  }
 }
+
+/* ---------- кнопка Пауза / Продолжить ---------- */
+pauseB.onclick = () => {
+  paused = !paused;
+  pauseB.textContent = paused ? '▶ Продолжить' : '⏸ Пауза';
+  if (paused)
+    st.textContent = '⏸ Пауза';
+};
 
 /* ---------- запуск ---------- */
 async function initApp(){
   if (!wsPromise) wsPromise = connectWS(onResult);
   ws = await wsPromise;
 
-  await loadHistory();                // << показываем историю сразу
+  await loadHistory();
 
   v.srcObject = await navigator.mediaDevices.getUserMedia({ video:true });
   await v.play();
@@ -105,7 +117,7 @@ async function initApp(){
   const frame = new Float32Array(FRAME_DIM);
 
   function loop(ts){
-    if (ts - lastTS > 33){
+    if (!paused && ts - lastTS > 33){
       lastTS = ts;
 
       const pr = pose.detectForVideo(v, ts);
@@ -114,7 +126,7 @@ async function initApp(){
 
       let off = 0;
 
-      /* 1. Руки — Left → Right */
+      /* 1. Руки — Left -> Right */
       const sorted = hr.landmarks
           .map((lms,i)=>({
             label: hr.handedness?.[i]?.categories?.[0]?.categoryName,
@@ -127,7 +139,7 @@ async function initApp(){
         frame[off++] = l.z;
       }));
 
-      /* 2. Позa */
+      /* 2. Поза */
       if (pr.landmarks.length)
         pr.landmarks[0].forEach(l=>{
           frame[off++] = l.x;
@@ -162,8 +174,7 @@ function drawDots(pose, hand){
 
 /* ---------- логин ---------- */
 function loggedIn(){
-  return document.cookie.split(';')
-      .some(c => c.trim().startsWith('zoo_uid='));
+  return document.cookie.split(';').some(c => c.trim().startsWith('zoo_uid='));
 }
 
 if (loggedIn()){
