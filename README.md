@@ -49,7 +49,7 @@ docker compose up -d
 ### Все пути даны от корня http://localhost:8080.
 ### Почти все методы (кроме регистрации) ожидают cookie zoo_uid – её ставит эндпоинт регистрации.
 
-### POST запрос для парсинга книг:
+### POST запрос для регистрации
 ```bash
 POST http://localhost:8080/api/register
 Content-Type: application/json
@@ -58,7 +58,7 @@ Content-Type: application/json
   "name": "Name"
 }
 ```
-### GET запрос для получения всех спарсенных книг:
+### GET запрос для получения списка последних 100 распознанных животных:
 ```bash
 GET http://localhost:8080/api/history
 Cookie: zoo_uid=1
