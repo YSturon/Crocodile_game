@@ -49,7 +49,7 @@ docker compose up -d
 ### Все пути даны от корня http://localhost:8080.
 ### Почти все методы (кроме регистрации) ожидают cookie zoo_uid – её ставит эндпоинт регистрации.
 
-### POST запрос для регистрации
+### POST запрос для регистрации и установки zoo_uid:
 ```bash
 POST http://localhost:8080/api/register
 Content-Type: application/json
