@@ -74,3 +74,4 @@ Content-Type: application/json
 [0.123, 0.456, ..., 0.789]
 ```
 
+Редакция read.me, для теста трекера
